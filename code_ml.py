@@ -15,7 +15,9 @@ For website inference, import the lightweight helper from
 
 
 
-# Import required libraries
+import matplotlib
+matplotlib.use('Agg')
+
 import os, re, time, warnings, glob
 import numpy as np
 import cv2
