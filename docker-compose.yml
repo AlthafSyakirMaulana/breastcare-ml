@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  train:
+    build: .
+    command: python code_ml.py
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+      - ~/.kaggle:/root/.kaggle:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - BUSI_DATASET_DIR=/app/data/raw
+      - OUTPUT_DIR=/app/outputs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  jupyter:
+    build: .
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - BUSI_DATASET_DIR=/app/data/raw
+      - OUTPUT_DIR=/app/outputs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  download:
+    build: .
+    command: python -c "
+import kagglehub, shutil, os
+from pathlib import Path
+data_dir = Path('/app/data/raw')
+data_dir.mkdir(parents=True, exist_ok=True)
+print('Downloading BUSI dataset...')
+path = kagglehub.dataset_download('aryashah2k/breast-ultrasound-images-dataset')
+print(f'Downloaded to: {path}')
+for item in Path(path).iterdir():
+    dest = data_dir / item.name
+    if item.is_dir():
+        shutil.copytree(item, dest, dirs_exist_ok=True)
+    else:
+        shutil.copy2(item, dest)
+print(f'Dataset saved to: {data_dir}')
+print('Files:', list(data_dir.iterdir()))
+"
+    volumes:
+      - ./data:/app/data
+      - ~/.kaggle:/root/.kaggle:ro
+    environment:
+      - PYTHONUNBUFFERED=1

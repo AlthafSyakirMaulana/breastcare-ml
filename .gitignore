@@ -1,0 +1,9 @@
+data/
+models/
+notebooks/
+*.pth
+*.h5
+*.onnx
+__pycache__/
+*.pyc
+.DS_Store
