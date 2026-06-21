@@ -1,6 +1,15 @@
 version: "3.8"
 
 services:
+  download:
+    build: .
+    command: python download_dataset.py
+    volumes:
+      - ./data:/app/data
+      - ~/.kaggle:/root/.kaggle:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+
   train:
     build: .
     command: python code_ml.py
@@ -12,6 +21,9 @@ services:
       - PYTHONUNBUFFERED=1
       - BUSI_DATASET_DIR=/app/data/raw/Dataset_BUSI_with_GT
       - OUTPUT_DIR=/app/outputs
+    depends_on:
+      - download
+
   jupyter:
     build: .
     command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
@@ -25,12 +37,3 @@ services:
       - PYTHONUNBUFFERED=1
       - BUSI_DATASET_DIR=/app/data/raw/Dataset_BUSI_with_GT
       - OUTPUT_DIR=/app/outputs
-
-  download:
-    build: .
-    command: python download_dataset.py
-    volumes:
-      - ./data:/app/data
-      - ~/.kaggle:/root/.kaggle:ro
-    environment:
-      - PYTHONUNBUFFERED=1

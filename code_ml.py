@@ -84,6 +84,8 @@ def find_dataset_root():
         '/kaggle/input/breast-ultrasound-images-dataset',
         '/kaggle/input/busi-dataset/Dataset_BUSI_with_GT',
         '/kaggle/input/busi-dataset',
+        '/app/data/raw/Dataset_BUSI_with_GT',
+        '/app/data/raw',
     ]
 
     # Search additional dataset directories on Kaggle
@@ -99,6 +101,12 @@ def find_dataset_root():
     for root, dirs, _ in os.walk('/kaggle/input'):
         if 'benign' in dirs:
             return root
+
+    # Fallback: search /app/data recursively
+    if os.path.isdir('/app/data'):
+        for root, dirs, _ in os.walk('/app/data'):
+            if 'benign' in dirs:
+                return root
 
     return None
 
@@ -194,7 +202,8 @@ def plot_samples(num_samples=3):
         axes[i, 1].axis("off")
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(OUTPUT_DIR, 'plot_001.png'))
+    plt.close()
 
 # Display three samples
 plot_samples(3)
@@ -423,7 +432,8 @@ ax.set_title('Train / Validation / Test Distribution (Foreground Ratio)')
 ax.legend()
 
 plt.tight_layout()
-plt.show()
+plt.savefig(os.path.join(OUTPUT_DIR, 'plot_002.png'))
+plt.close()
 
 # ── Kolmogorov–Smirnov statistical test ──
 # Compare the training and test distributions
@@ -575,7 +585,8 @@ plt.suptitle('Augmentation Results',
              fontsize=14, fontweight='bold')
 
 plt.tight_layout()
-plt.show()
+plt.savefig(os.path.join(OUTPUT_DIR, 'plot_003.png'))
+plt.close()
 
 
 # ## 8. Dice Loss & Metrics (Dice · IoU · Precision · Recall · Accuracy)
@@ -846,9 +857,9 @@ except Exception as exc:
 
 
 # ── Training configuration ──
-EPOCHS     = 120        # maximum number of full-dataset training epochs
-PATIENCE   = 15         # epochs to wait before early stopping
-BATCH_SIZE = 32         # larger batch size for faster training (~40%)
+EPOCHS     = int(os.getenv('EPOCHS', '120'))
+PATIENCE   = int(os.getenv('PATIENCE', '15'))
+BATCH_SIZE = int(os.getenv('BATCH_SIZE', '8'))
 
 
 # ── Focal + Dice Loss ──
@@ -1037,7 +1048,8 @@ ax.grid(True, alpha=0.3)
 ax.legend()
 
 plt.tight_layout()
-plt.show()
+plt.savefig(os.path.join(OUTPUT_DIR, 'plot_004.png'))
+plt.close()
 
 # ── Statistics ──
 print(f"Average time per epoch : {np.mean(epoch_times):.2f} s")
@@ -1141,7 +1153,8 @@ plt.suptitle(
 )
 
 plt.tight_layout()
-plt.show()
+plt.savefig(os.path.join(OUTPUT_DIR, 'plot_005.png'))
+plt.close()
 
 # ==========================================================
 # TRAINING SUMMARY
@@ -1383,7 +1396,8 @@ plt.suptitle(
 )
 
 plt.tight_layout()
-plt.show()
+plt.savefig(os.path.join(OUTPUT_DIR, 'plot_006.png'))
+plt.close()
 
 # ─────────────────────────────────────────────
 # 10. PRINT THE RESULT SUMMARY
@@ -1489,7 +1503,8 @@ plt.suptitle(
 )
 
 plt.tight_layout()
-plt.show()
+plt.savefig(os.path.join(OUTPUT_DIR, 'plot_007.png'))
+plt.close()
 
 
 # ## 16c. ROC Curve Chart (Train / Validation / Test)
@@ -1599,7 +1614,8 @@ ax.grid(alpha=0.3)
 ax.legend()
 
 plt.tight_layout()
-plt.show()
+plt.savefig(os.path.join(OUTPUT_DIR, 'plot_008.png'))
+plt.close()
 
 
 # ## 16d. Confusion Matrix (Pixel-level)
@@ -1720,7 +1736,8 @@ def plot_confusion_matrix(y_true, y_pred_prob, threshold=0.5,
     )
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(OUTPUT_DIR, 'plot_009.png'))
+    plt.close()
 
 
 # ─────────────────────────────────────────────
@@ -1871,7 +1888,8 @@ def visualize_prediction(idx=None):
     )
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(OUTPUT_DIR, 'plot_010.png'))
+    plt.close()
 
     # =================================================
     # PRINT METRICS TO THE CONSOLE
@@ -1901,6 +1919,63 @@ import matplotlib.pyplot as plt
 import time
 from sklearn.metrics import precision_score, recall_score
 
+# =====================================================
+# FUNCTION TO PREDICT A MASK FOR ONE IMAGE
+# =====================================================
+def predict_mask(image):
+
+    image = np.expand_dims(image, axis=0)
+
+    start_time = time.time()
+
+    pred = model.predict(image, verbose=0)[0, :, :, 0]
+
+    inference_time = time.time() - start_time
+
+    return pred, inference_time
+
+
+# =====================================================
+# FUNCTION TO CALCULATE METRICS
+# =====================================================
+def calculate_metrics(y_true, y_pred):
+
+    y_true = y_true.astype(np.uint8).flatten()
+    y_pred = y_pred.astype(np.uint8).flatten()
+
+    intersection = np.sum(y_true * y_pred)
+
+    dice = (
+        2.0 * intersection + 1e-7
+    ) / (
+        np.sum(y_true) + np.sum(y_pred) + 1e-7
+    )
+
+    iou = (
+        intersection + 1e-7
+    ) / (
+        np.sum(y_true) + np.sum(y_pred) - intersection + 1e-7
+    )
+
+    precision = precision_score(
+        y_true,
+        y_pred,
+        zero_division=0
+    )
+
+    recall = recall_score(
+        y_true,
+        y_pred,
+        zero_division=0
+    )
+
+    accuracy = np.mean(y_true == y_pred)
+
+    return dice, iou, precision, recall, accuracy
+
+
+# =====================================================
+# DISPLAY THE FIRST TEN IMAGES FROM THE TEST SET
 # =====================================================
 # FUNCTION TO PREDICT A MASK FOR ONE IMAGE
 # =====================================================
@@ -2063,8 +2138,9 @@ plt.suptitle(
     y=0.995
 )
 
-plt.tight_layout(rect=[0, 0, 1, 0.985])
-plt.show()
+plt.tight_layout(rect=(0, 0, 1, 0.985))
+plt.savefig(os.path.join(OUTPUT_DIR, 'plot_011.png'))
+plt.close()
 
 
 # ## 18. Reload the Saved Best Model
@@ -2170,7 +2246,8 @@ plt.ylabel("Score")
 plt.title("U-Net Performance on the Test Set", fontweight='bold')
 plt.grid(axis='y', alpha=0.3)
 plt.tight_layout()
-plt.show()
+plt.savefig(os.path.join(OUTPUT_DIR, 'plot_012.png'))
+plt.close()
 
 
 # ─────────────────────────────────────────────

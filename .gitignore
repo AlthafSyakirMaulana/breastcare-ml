@@ -7,3 +7,9 @@ notebooks/
 __pycache__/
 *.pyc
 .DS_Store
+venv312/
+.ipynb_checkpoints/
+outputs/
+*.keras
+*.pkl
+*.zip
