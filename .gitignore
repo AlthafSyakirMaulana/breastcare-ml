@@ -10,6 +10,6 @@ __pycache__/
 venv312/
 .ipynb_checkpoints/
 outputs/
-*.keras
+# *.keras  # uncomment if you don't want to track model files
 *.pkl
 *.zip
