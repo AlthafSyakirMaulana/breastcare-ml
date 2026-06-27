@@ -1,15 +1,19 @@
 data/
 models/
 notebooks/
-*.pth
-*.h5
-*.onnx
 __pycache__/
 *.pyc
 .DS_Store
 venv312/
+venv311/
 .ipynb_checkpoints/
 outputs/
-# *.keras  # uncomment if you don't want to track model files
+outputs_unet/
+outputs_classifier/
+*.keras
+*.pt
+*.h5
+*.pth
+*.onnx
 *.pkl
 *.zip
