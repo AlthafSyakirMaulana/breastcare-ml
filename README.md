@@ -1,54 +1,43 @@
-# BreastCare ML - Model Deteksi Kanker Payudara
+---
+title: BERSERI API
+emoji: 🩺
+colorFrom: purple
+colorTo: pink
+sdk: docker
+app_port: 7860
+---
 
-Machine Learning model untuk klasifikasi citra mammografi (Normal, Jinak, Ganas).
+# BERSERI — Breast Early Risk Screening Intelligence
 
-## Struktur Folder
+BERSERI is a breast ultrasound screening-support API.
 
+## Endpoints
+
+- **POST /predict** — Upload an ultrasound image (field name: `file`) and receive:
+  - Classification: Normal / Jinak / Ganas with confidence scores
+  - Segmentation: predicted lesion mask and overlay image
+- **GET /health** — Check backend status and model loading state
+
+## Models
+
+- **ResNet101 classifier** — Produces the diagnosis label (Normal / Jinak / Ganas)
+- **U-Net segmenter** — Predicts lesion-area mask and overlay only; does not determine diagnosis
+
+## Important Notes
+
+- This is a **prototype screening-support tool**, not a medical diagnosis system.
+- Required local model paths:
+  - `models/breast_classifier_approach1_best.pt`
+  - `models/unet_unbalanced_best.keras`
+
+## Quick Start
+
+```bash
+uvicorn api:app --host 0.0.0.0 --port 7860
 ```
-breastcare-ml/
-├── data/               # Dataset (gitignored untuk file besar)
-│   ├── raw/            # Data mentah
-│   ├── processed/      # Data setelah preprocessing
-│   └── splits/         # Train/val/test split
-├── notebooks/          # Eksperimen dan analisis
-├── models/             # Model yang sudah dilatih
-├── src/                # Source code
-│   ├── preprocessing/  # Preprocessing pipeline
-│   ├── model/          # Arsitektur model
-│   ├── train.py        # Training script
-│   └── predict.py      # Inference script
-├── requirements.txt
-├── Dockerfile
-└── README.md
-```
 
-## Deploy ke Railway
-
-1. Push repo ini ke GitHub
-2. Buat akun di [Railway](https://railway.app)
-3. Klik **New Project** → **Deploy from GitHub repo**
-4. Pilih repo `breastcare-ml`
-5. Railway akan otomatis mendeteksi `Dockerfile` dan build
-6. Setelah deploy, dapatkan URL (contoh: `https://breastcare-ml.up.railway.app`)
-7. Test dengan: `curl https://breastcare-ml.up.railway.app/health`
-
-## Deploy ke Render
-
-1. Push repo ke GitHub
-2. Buat akun di [Render](https://render.com)
-3. Klik **New +** → **Web Service**
-4. Hubungkan GitHub repo
-5. Set:
-   - **Name**: `breastcare-ml`
-   - **Runtime**: Docker
-   - **Branch**: `main`
-   - **Health Check Path**: `/health`
-6. Deploy
-
-## Hubungkan ke Frontend
-
-Setelah backend live, set environment variable di Vercel:
-
-```
-NEXT_PUBLIC_API_URL=https://breastcare-ml.up.railway.app
+Test:
+```bash
+curl http://localhost:7860/health
+curl -X POST http://localhost:7860/predict -F "file=@sample.png"
 ```
