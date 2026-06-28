@@ -15,6 +15,8 @@ Expected project structure:
     │   └── unet_unbalanced_best.keras
     └── ...
 
+Model files are downloaded from Hugging Face Hub if not found locally.
+
 Run locally:
     uvicorn api:app --host 0.0.0.0 --port 8000
 
@@ -24,6 +26,7 @@ Environment variables:
     ALLOWED_ORIGINS        Comma-separated frontend origins.
     MASK_THRESHOLD         U-Net mask threshold (default 0.5).
     MAX_UPLOAD_MB          Maximum uploaded image size in MB (default 10).
+    HF_MODEL_REPO          Hugging Face model repo ID (default: althaf505/berseri-models).
 """
 
 from __future__ import annotations
@@ -56,6 +59,7 @@ MODEL_DIR = BASE_DIR / "models"
 UNET_INPUT_SIZE = (256, 256)  # (width, height)
 DEFAULT_CLASSIFIER_PATH = MODEL_DIR / "breast_classifier_approach1_best.pt"
 DEFAULT_UNET_PATH = MODEL_DIR / "unet_unbalanced_best.keras"
+HF_MODEL_REPO = os.getenv("HF_MODEL_REPO", "althaf505/berseri-models")
 
 CLASSIFIER_MODEL_PATH = Path(
     os.getenv("CLASSIFIER_MODEL_PATH", str(DEFAULT_CLASSIFIER_PATH))
@@ -193,22 +197,26 @@ def load_classifier_checkpoint() -> None:
     """Load the ResNet101 Approach-1 classifier and matching preprocessing."""
     global classifier_model, classifier_class_names, classifier_transform, classifier_device
 
-    if not CLASSIFIER_MODEL_PATH.is_file():
-        raise RuntimeError(
-            f"Classifier checkpoint not found: {CLASSIFIER_MODEL_PATH}. "
-            "Run code_classifier.py first or set CLASSIFIER_MODEL_PATH."
+    model_path = CLASSIFIER_MODEL_PATH
+    if not model_path.is_file():
+        from huggingface_hub import hf_hub_download
+        print(f"Downloading classifier from {HF_MODEL_REPO}...")
+        model_path = Path(
+            hf_hub_download(
+                repo_id=HF_MODEL_REPO,
+                filename="breast_classifier_approach1_best.pt",
+            )
         )
 
     classifier_device = get_torch_device()
     try:
         checkpoint: Dict[str, Any] = torch.load(
-            CLASSIFIER_MODEL_PATH,
+            model_path,
             map_location=classifier_device,
             weights_only=False,
         )
     except TypeError:
-        # Compatibility with older PyTorch versions that do not support weights_only.
-        checkpoint = torch.load(CLASSIFIER_MODEL_PATH, map_location=classifier_device)
+        checkpoint = torch.load(model_path, map_location=classifier_device)
 
     required = {"state_dict", "class_names", "image_size", "normalization"}
     missing = required.difference(checkpoint)
@@ -257,14 +265,19 @@ def load_unet_checkpoint() -> None:
     """Load the U-Net only for inference."""
     global unet_model
 
-    if not UNET_MODEL_PATH.is_file():
-        raise RuntimeError(
-            f"U-Net model not found: {UNET_MODEL_PATH}. "
-            "Run code_ml.py first or set UNET_MODEL_PATH."
+    model_path = UNET_MODEL_PATH
+    if not model_path.is_file():
+        from huggingface_hub import hf_hub_download
+        print(f"Downloading U-Net from {HF_MODEL_REPO}...")
+        model_path = Path(
+            hf_hub_download(
+                repo_id=HF_MODEL_REPO,
+                filename="unet_unbalanced_best.keras",
+            )
         )
 
     # compile=False skips training-only losses and metrics at deployment.
-    network = tf.keras.models.load_model(UNET_MODEL_PATH, compile=False)
+    network = tf.keras.models.load_model(str(model_path), compile=False)
     input_shape = tuple(network.input_shape[1:])
     expected_shape = (UNET_INPUT_SIZE[1], UNET_INPUT_SIZE[0], 3)
     if input_shape != expected_shape:
